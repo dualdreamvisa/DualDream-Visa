@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Job Sponsors – DualDream Visa</title>
+    <title>Job Opportunities – DualDream Visa</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -24,35 +24,40 @@
     </header>
 
     <section>
-        <h2 class="section-title animate fade-up">Current Opportunities with Visa Sponsorship</h2>
-        <div class="grid">
-            <div class="card animate fade-up">
-                <h3>Software Developer – Canada</h3>
-                <p>Tech company in Toronto seeking skilled developers. LMIA approved.</p>
-            </div>
-            <div class="card animate fade-up">
-                <h3>Registered Nurse – USA</h3>
-                <p>H-1B sponsorship for experienced nurses in Texas and Florida hospitals.</p>
-            </div>
-            <div class="card animate fade-up">
-                <h3>Truck Driver – Canada</h3>
-                <p>Long‑haul driver positions with work permit and pathway to PR.</p>
-            </div>
-            <div class="card animate fade-up">
-                <h3>Construction Labourer – USA</h3>
-                <p>Seasonal H-2B visas available for construction projects.</p>
-            </div>
-        </div>
-        <p class="animate fade-up" style="margin-top:20px;"><em>These listings are updated regularly. For personalized job matching, <a href="counselling.html">apply for free counselling</a>.</em></p>
+        <h2 class="section-title animate fade-up">Visa Sponsorship Jobs (50+ Opportunities)</h2>
+        <div id="jobsContainer" class="grid"></div>
     </section>
 
     <footer>
         <div class="footer-content">
-            <div><h4>DualDream Visa</h4></div>
+            <div><h4>DualDream Visa</h4><p>Your US & Canada immigration partner</p></div>
             <div><p><a href="mailto:dualdreamvisa@gmail.com">dualdreamvisa@gmail.com</a></p><p><a href="https://wa.me/18624289126">WhatsApp +1 (862) 428-9126</a></p></div>
         </div>
         <p>&copy; 2025 DualDream Visa</p>
     </footer>
+
+    <script src="js/jobs-data.js"></script>
+    <script>
+        const container = document.getElementById('jobsContainer');
+        function renderJobs() {
+            let html = '';
+            jobs.forEach(job => {
+                html += `
+                    <div class="card animate fade-up">
+                        <h3>${job.title}</h3>
+                        <p><strong>${job.company}</strong> – ${job.location}</p>
+                        <p>Visa: ${job.visaType}</p>
+                        <p>${job.description.substring(0, 100)}...</p>
+                        <a href="job-details.html?id=${job.id}" class="btn" style="background:var(--secondary); color:var(--primary); padding:10px 20px; text-decoration:none; display:inline-block;">View Details</a>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            // re-trigger animation observer if needed
+            document.querySelectorAll('.animate').forEach(el => el.classList.add('visible'));
+        }
+        renderJobs();
+    </script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
