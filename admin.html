@@ -23,7 +23,7 @@
             background: var(--secondary);
             color: var(--primary);
         }
-        /* Modal styles (same as before) */
+        /* Modal styles */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -61,7 +61,6 @@
             font-weight: bold;
             color: #0B1D3A;
         }
-        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -94,7 +93,7 @@
 
         let allCounsellingDocs = [];
         let allJobDocs = [];
-        let currentTab = 'counselling'; // default
+        let currentTab = 'counselling';
 
         // Auth check
         onAuthStateChanged(auth, async (user) => {
@@ -160,7 +159,10 @@
                     <div class="label">Qualification</div><div>${data.qualification || ''}</div>
                     <div class="label">Experience</div><div>${data.experience || ''} years</div>
                     <div class="label">Cover Letter</div><div>${data.coverLetter || ''}</div>
-                    <div class="label">CV File</div><div>${data.cvFileName || ''}</div>
+                    <div class="label">CV File</div><div>
+                        ${data.cvFileName || ''} 
+                        ${data.cvBase64 ? `<a href="${data.cvBase64}" download="${data.cvFileName || 'cv.pdf'}" class="btn" style="background:var(--secondary);color:var(--primary);padding:5px 10px;text-decoration:none;">Download CV</a>` : ''}
+                    </div>
                     <div class="label">Applied On</div><div>${data.appliedAt ? new Date(data.appliedAt.seconds*1000).toLocaleString() : ''}</div>
                 `;
             }
@@ -199,7 +201,6 @@
             document.getElementById('tabCounselling').addEventListener('click', () => switchTab('counselling'));
             document.getElementById('tabJobs').addEventListener('click', () => switchTab('jobs'));
 
-            // Initial load
             switchTab('counselling');
         }
 
