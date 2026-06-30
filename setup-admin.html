@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Setup – DualDream Visa</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div style="max-width:500px;margin:100px auto;padding:30px;" class="card">
+        <h2>Create Admin Account</h2>
+        <p>Use this page once to register yourself as admin. Then delete this file from server.</p>
+        <div class="form-group"><input type="email" id="setupEmail" placeholder="Your admin email" required></div>
+        <div class="form-group"><input type="password" id="setupPassword" placeholder="Password (min 6 chars)" required></div>
+        <button id="setupBtn" class="submit-btn">Create Admin</button>
+        <p id="setupMsg"></p>
+    </div>
+
+    <script type="module">
+        import { db, auth } from "./js/firebase-init.js";
+        import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+        import { collection, addDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        document.getElementById('setupBtn').addEventListener('click', async () => {
+            const email = document.getElementById('setupEmail').value;
+            const password = document.getElementById('setupPassword').value;
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                // Add to admins collection
+                await addDoc(collection(db, "admins"), { uid: userCredential.user.uid, email: email });
+                document.getElementById('setupMsg').textContent = "Admin created! You can now login at admin.html. DELETE this setup page now.";
+            } catch (e) {
+                document.getElementById('setupMsg').textContent = "Error: " + e.message;
+            }
+        });
+    </script>
+</body>
+</html>
