@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Free Counselling – DualDream Visa</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <div class="logo"><img src="images/logo.png" alt="Logo"></div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="about.html">About</a></li>
+                    <li><a href="visas.html">Visa Types</a></li>
+                    <li><a href="jobs.html">Jobs</a></li>
+                    <li><a href="counselling.html">Free Counselling</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section>
+        <h2 class="section-title animate fade-up">Get Free Counselling</h2>
+        <p class="animate fade-up">Fill in the form below and our expert will contact you within 24 hours.</p>
+
+        <form id="counsellingForm" class="animate fade-up">
+            <div class="form-group"><label>Full Name *</label><input type="text" id="name" required></div>
+            <div class="form-group"><label>Mobile Number *</label><input type="tel" id="mobile" required></div>
+            <div class="form-group"><label>Email *</label><input type="email" id="email" required></div>
+            <div class="form-group"><label>Country *</label><input type="text" id="country" required></div>
+            <div class="form-group"><label>City *</label><input type="text" id="city" required></div>
+            <div class="form-group"><label>Gender *</label>
+                <select id="gender" required>
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Date of Birth *</label><input type="date" id="dob" required></div>
+            <div class="form-group"><label>Highest Qualification *</label><input type="text" id="qualification" required></div>
+            <div class="form-group"><label>Budget (USD) *</label><input type="number" id="budget" required></div>
+            <div class="form-group"><label>Purpose *</label>
+                <select id="purpose" required>
+                    <option value="">Select</option>
+                    <option value="Worker">Worker</option>
+                    <option value="Scholarship">Scholarship</option>
+                    <option value="Visit">Visit</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Interested Country</label><input type="text" id="interestedCountry"></div>
+            <div class="form-group"><label>When & Why (Summary)</label><textarea id="summary" rows="3"></textarea></div>
+            <button type="submit" class="submit-btn">Submit Request</button>
+            <div id="formMessage" class="success-message"></div>
+        </form>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <div><h4>DualDream Visa</h4></div>
+            <div><p><a href="mailto:dualdreamvisa@gmail.com">dualdreamvisa@gmail.com</a></p><p><a href="https://wa.me/18624289126">WhatsApp +1 (862) 428-9126</a></p></div>
+        </div>
+        <p>&copy; 2025 DualDream Visa</p>
+    </footer>
+
+    <script type="module">
+        import { db } from "./js/firebase-init.js";
+        import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        document.getElementById('counsellingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                name: document.getElementById('name').value,
+                mobile: document.getElementById('mobile').value,
+                email: document.getElementById('email').value,
+                country: document.getElementById('country').value,
+                city: document.getElementById('city').value,
+                gender: document.getElementById('gender').value,
+                dob: document.getElementById('dob').value,
+                qualification: document.getElementById('qualification').value,
+                budget: Number(document.getElementById('budget').value),
+                purpose: document.getElementById('purpose').value,
+                interestedCountry: document.getElementById('interestedCountry').value,
+                summary: document.getElementById('summary').value,
+                createdAt: serverTimestamp()
+            };
+
+            try {
+                await addDoc(collection(db, "counselling"), formData);
+                document.getElementById('formMessage').textContent = "Thank you! We have received your request. We'll contact you soon.";
+                e.target.reset();
+            } catch (error) {
+                document.getElementById('formMessage').textContent = "Error submitting. Please try again.";
+                console.error(error);
+            }
+        });
+    </script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
