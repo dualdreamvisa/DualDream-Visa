@@ -4,9 +4,58 @@
     <meta charset="UTF-8">
     <title>Admin Panel – DualDream Visa</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .close-modal {
+            position: absolute;
+            top: 10px; right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #0B1D3A;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .detail-grid .label {
+            font-weight: bold;
+            color: #0B1D3A;
+        }
+    </style>
 </head>
 <body>
     <div id="adminApp"></div>
+
+    <!-- Modal for detailed view -->
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-modal" id="closeModalBtn">&times;</span>
+            <h2>Enquiry Details</h2>
+            <div id="detailContent" class="detail-grid"></div>
+        </div>
+    </div>
 
     <script type="module">
         import { db, auth } from "./js/firebase-init.js";
@@ -14,11 +63,18 @@
         import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
         const appDiv = document.getElementById('adminApp');
+        const modal = document.getElementById('detailModal');
+        const detailContent = document.getElementById('detailContent');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
 
         // Check auth state
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Verify admin privilege (check admins collection)
                 const adminSnap = await getDocs(query(collection(db, "admins"), where("uid", "==", user.uid)));
                 if (!adminSnap.empty) {
                     renderDashboard();
@@ -52,6 +108,27 @@
             });
         }
 
+        function showDetail(data) {
+            // Build detail HTML
+            let html = `
+                <div class="label">Name</div><div>${data.name || ''}</div>
+                <div class="label">Mobile</div><div>${data.mobile || ''}</div>
+                <div class="label">Email</div><div>${data.email || ''}</div>
+                <div class="label">Country</div><div>${data.country || ''}</div>
+                <div class="label">City</div><div>${data.city || ''}</div>
+                <div class="label">Gender</div><div>${data.gender || ''}</div>
+                <div class="label">Date of Birth</div><div>${data.dob || ''}</div>
+                <div class="label">Qualification</div><div>${data.qualification || ''}</div>
+                <div class="label">Budget (USD)</div><div>${data.budget || ''}</div>
+                <div class="label">Purpose</div><div>${data.purpose || ''}</div>
+                <div class="label">Interested Country</div><div>${data.interestedCountry || ''}</div>
+                <div class="label">When & Why (Summary)</div><div>${data.summary || ''}</div>
+                <div class="label">Submitted On</div><div>${data.createdAt ? new Date(data.createdAt.seconds*1000).toLocaleString() : 'N/A'}</div>
+            `;
+            detailContent.innerHTML = html;
+            modal.style.display = 'flex';
+        }
+
         async function renderDashboard() {
             appDiv.innerHTML = `
                 <div style="max-width:1200px;margin:20px auto;padding:20px;">
@@ -72,16 +149,13 @@
                 </div>
             `;
 
-            // Logout
             document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
-            // Load data
             const q = query(collection(db, "counselling"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
             let allDocs = [];
             querySnapshot.forEach(docSnap => allDocs.push({ id: docSnap.id, ...docSnap.data() }));
 
-            // Populate filters
             const countries = [...new Set(allDocs.map(d => d.country))];
             const purposes = [...new Set(allDocs.map(d => d.purpose))];
             const countrySelect = document.getElementById('filterCountry');
@@ -106,17 +180,30 @@
                             <option value="Follow-up" ${d.status==='Follow-up'?'selected':''}>Follow-up</option>
                             <option value="Closed" ${d.status==='Closed'?'selected':''}>Closed</option>
                         </select></td>
-                        <td><button class="deleteBtn" data-id="${d.id}">Delete</button></td>
+                        <td>
+                            <button class="viewBtn" data-id="${d.id}">View</button>
+                            <button class="deleteBtn" data-id="${d.id}">Delete</button>
+                        </td>
                     `;
                     tbody.appendChild(row);
                 });
                 attachStatusListeners();
                 attachDeleteListeners();
+                attachViewListeners(docs);
             }
 
             renderTable(allDocs);
 
-            // Filters
+            function attachViewListeners(docs) {
+                document.querySelectorAll('.viewBtn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.dataset.id;
+                        const docData = docs.find(d => d.id === id);
+                        if (docData) showDetail(docData);
+                    });
+                });
+            }
+
             function applyFilters() {
                 let filtered = allDocs;
                 const countryVal = document.getElementById('filterCountry').value;
@@ -131,7 +218,6 @@
             document.getElementById('filterPurpose').addEventListener('change', applyFilters);
             document.getElementById('searchBox').addEventListener('input', applyFilters);
 
-            // Status change
             function attachStatusListeners() {
                 document.querySelectorAll('.statusChange').forEach(select => {
                     select.addEventListener('change', async (e) => {
@@ -142,20 +228,18 @@
                 });
             }
 
-            // Delete
             function attachDeleteListeners() {
                 document.querySelectorAll('.deleteBtn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         if(confirm('Delete this entry?')) {
                             await deleteDoc(doc(db, "counselling", e.target.dataset.id));
-                            // Reload page or remove row
                             location.reload();
                         }
                     });
                 });
             }
 
-            // Export CSV
+            // Export CSV (includes all fields, not just visible ones)
             document.getElementById('exportCSV').addEventListener('click', () => {
                 const rows = [['Date','Name','Email','Mobile','Country','City','Gender','DOB','Qualification','Budget','Purpose','Interested Country','Summary','Status']];
                 allDocs.forEach(d => {
