@@ -5,7 +5,25 @@
     <title>Admin Panel – DualDream Visa</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* Modal styles */
+        /* Tabs */
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 25px;
+            border: none;
+            background: #ddd;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .tab-btn.active {
+            background: var(--secondary);
+            color: var(--primary);
+        }
+        /* Modal styles (same as before) */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -20,7 +38,7 @@
             background: white;
             padding: 30px;
             border-radius: 10px;
-            max-width: 600px;
+            max-width: 700px;
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
@@ -43,6 +61,7 @@
             font-weight: bold;
             color: #0B1D3A;
         }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -52,7 +71,7 @@
     <div id="detailModal" class="modal-overlay">
         <div class="modal-content">
             <span class="close-modal" id="closeModalBtn">&times;</span>
-            <h2>Enquiry Details</h2>
+            <h2 id="detailTitle">Details</h2>
             <div id="detailContent" class="detail-grid"></div>
         </div>
     </div>
@@ -65,6 +84,7 @@
         const appDiv = document.getElementById('adminApp');
         const modal = document.getElementById('detailModal');
         const detailContent = document.getElementById('detailContent');
+        const detailTitle = document.getElementById('detailTitle');
         const closeModalBtn = document.getElementById('closeModalBtn');
 
         closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
@@ -72,7 +92,11 @@
             if (e.target === modal) modal.style.display = 'none';
         });
 
-        // Check auth state
+        let allCounsellingDocs = [];
+        let allJobDocs = [];
+        let currentTab = 'counselling'; // default
+
+        // Auth check
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 const adminSnap = await getDocs(query(collection(db, "admins"), where("uid", "==", user.uid)));
@@ -103,73 +127,125 @@
                 try {
                     await signInWithEmailAndPassword(auth, email, pass);
                 } catch (e) {
-                    document.getElementById('loginError').textContent = "Invalid email or password.";
+                    document.getElementById('loginError').textContent = "Invalid credentials.";
                 }
             });
         }
 
-        function showDetail(data) {
-            // Build detail HTML
-            let html = `
-                <div class="label">Name</div><div>${data.name || ''}</div>
-                <div class="label">Mobile</div><div>${data.mobile || ''}</div>
-                <div class="label">Email</div><div>${data.email || ''}</div>
-                <div class="label">Country</div><div>${data.country || ''}</div>
-                <div class="label">City</div><div>${data.city || ''}</div>
-                <div class="label">Gender</div><div>${data.gender || ''}</div>
-                <div class="label">Date of Birth</div><div>${data.dob || ''}</div>
-                <div class="label">Qualification</div><div>${data.qualification || ''}</div>
-                <div class="label">Budget (USD)</div><div>${data.budget || ''}</div>
-                <div class="label">Purpose</div><div>${data.purpose || ''}</div>
-                <div class="label">Interested Country</div><div>${data.interestedCountry || ''}</div>
-                <div class="label">When & Why (Summary)</div><div>${data.summary || ''}</div>
-                <div class="label">Submitted On</div><div>${data.createdAt ? new Date(data.createdAt.seconds*1000).toLocaleString() : 'N/A'}</div>
-            `;
+        function showDetail(data, type) {
+            let html = '';
+            if (type === 'counselling') {
+                html = `
+                    <div class="label">Name</div><div>${data.name || ''}</div>
+                    <div class="label">Mobile</div><div>${data.mobile || ''}</div>
+                    <div class="label">Email</div><div>${data.email || ''}</div>
+                    <div class="label">Country</div><div>${data.country || ''}</div>
+                    <div class="label">City</div><div>${data.city || ''}</div>
+                    <div class="label">Gender</div><div>${data.gender || ''}</div>
+                    <div class="label">Date of Birth</div><div>${data.dob || ''}</div>
+                    <div class="label">Qualification</div><div>${data.qualification || ''}</div>
+                    <div class="label">Budget</div><div>${data.budget || ''}</div>
+                    <div class="label">Purpose</div><div>${data.purpose || ''}</div>
+                    <div class="label">Interested Country</div><div>${data.interestedCountry || ''}</div>
+                    <div class="label">Summary</div><div>${data.summary || ''}</div>
+                    <div class="label">Submitted</div><div>${data.createdAt ? new Date(data.createdAt.seconds*1000).toLocaleString() : ''}</div>
+                `;
+            } else if (type === 'job') {
+                html = `
+                    <div class="label">Job Title</div><div>${data.jobTitle || ''}</div>
+                    <div class="label">Applicant Name</div><div>${data.name || ''}</div>
+                    <div class="label">Email</div><div>${data.email || ''}</div>
+                    <div class="label">Phone</div><div>${data.phone || ''}</div>
+                    <div class="label">Country</div><div>${data.country || ''}</div>
+                    <div class="label">Qualification</div><div>${data.qualification || ''}</div>
+                    <div class="label">Experience</div><div>${data.experience || ''} years</div>
+                    <div class="label">Cover Letter</div><div>${data.coverLetter || ''}</div>
+                    <div class="label">CV File</div><div>${data.cvFileName || ''}</div>
+                    <div class="label">Applied On</div><div>${data.appliedAt ? new Date(data.appliedAt.seconds*1000).toLocaleString() : ''}</div>
+                `;
+            }
+            detailTitle.textContent = (type === 'counselling' ? 'Counselling Request' : 'Job Application') + ' Detail';
             detailContent.innerHTML = html;
             modal.style.display = 'flex';
         }
 
         async function renderDashboard() {
+            // Fetch both collections
+            const counsellingSnap = await getDocs(query(collection(db, "counselling"), orderBy("createdAt", "desc")));
+            allCounsellingDocs = [];
+            counsellingSnap.forEach(doc => allCounsellingDocs.push({ id: doc.id, ...doc.data() }));
+
+            const jobSnap = await getDocs(query(collection(db, "job_applications"), orderBy("appliedAt", "desc")));
+            allJobDocs = [];
+            jobSnap.forEach(doc => allJobDocs.push({ id: doc.id, ...doc.data() }));
+
             appDiv.innerHTML = `
                 <div style="max-width:1200px;margin:20px auto;padding:20px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <h2>Counselling Requests</h2>
+                        <h2>Admin Panel</h2>
                         <button id="logoutBtn" class="logout-btn">Logout</button>
                     </div>
-                    <div class="filter-bar">
-                        <select id="filterCountry"><option value="">All Countries</option></select>
-                        <select id="filterPurpose"><option value="">All Purposes</option></select>
-                        <input type="text" id="searchBox" placeholder="Search name or email">
+                    <div class="tab-container">
+                        <button id="tabCounselling" class="tab-btn active">Counselling Requests</button>
+                        <button id="tabJobs" class="tab-btn">Job Applications</button>
                     </div>
-                    <button id="exportCSV" class="export-btn">Export CSV</button>
-                    <table class="dashboard-table">
-                        <thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Country</th><th>Purpose</th><th>Status</th><th>Actions</th></tr></thead>
-                        <tbody id="tableBody"></tbody>
-                    </table>
+                    <div id="tabContent"></div>
                 </div>
             `;
 
             document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
-            const q = query(collection(db, "counselling"), orderBy("createdAt", "desc"));
-            const querySnapshot = await getDocs(q);
-            let allDocs = [];
-            querySnapshot.forEach(docSnap => allDocs.push({ id: docSnap.id, ...docSnap.data() }));
+            // Tab switching
+            document.getElementById('tabCounselling').addEventListener('click', () => switchTab('counselling'));
+            document.getElementById('tabJobs').addEventListener('click', () => switchTab('jobs'));
 
-            const countries = [...new Set(allDocs.map(d => d.country))];
-            const purposes = [...new Set(allDocs.map(d => d.purpose))];
-            const countrySelect = document.getElementById('filterCountry');
-            const purposeSelect = document.getElementById('filterPurpose');
-            countries.forEach(c => { let opt = document.createElement('option'); opt.value = c; opt.textContent = c; countrySelect.appendChild(opt); });
-            purposes.forEach(p => { let opt = document.createElement('option'); opt.value = p; opt.textContent = p; purposeSelect.appendChild(opt); });
+            // Initial load
+            switchTab('counselling');
+        }
 
-            function renderTable(docs) {
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tabCounselling').classList.toggle('active', tab === 'counselling');
+            document.getElementById('tabJobs').classList.toggle('active', tab === 'jobs');
+
+            const contentDiv = document.getElementById('tabContent');
+            if (tab === 'counselling') {
+                renderCounsellingTab(contentDiv);
+            } else {
+                renderJobApplicationsTab(contentDiv);
+            }
+        }
+
+        function renderCounsellingTab(container) {
+            const docs = allCounsellingDocs;
+            let html = `
+                <div class="filter-bar">
+                    <select id="filterCountry"><option value="">All Countries</option></select>
+                    <select id="filterPurpose"><option value="">All Purposes</option></select>
+                    <input type="text" id="searchBox" placeholder="Search name or email">
+                </div>
+                <button id="exportCSV" class="export-btn">Export CSV</button>
+                <table class="dashboard-table">
+                    <thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Country</th><th>Purpose</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            `;
+            container.innerHTML = html;
+
+            const countries = [...new Set(docs.map(d => d.country))];
+            const purposes = [...new Set(docs.map(d => d.purpose))];
+            const countrySel = document.getElementById('filterCountry');
+            const purposeSel = document.getElementById('filterPurpose');
+            countries.forEach(c => { let opt = document.createElement('option'); opt.value = c; opt.textContent = c; countrySel.appendChild(opt); });
+            purposes.forEach(p => { let opt = document.createElement('option'); opt.value = p; opt.textContent = p; purposeSel.appendChild(opt); });
+
+            function renderTable(filteredDocs) {
                 const tbody = document.getElementById('tableBody');
                 tbody.innerHTML = '';
-                docs.forEach(d => {
+                filteredDocs.forEach(d => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString() : 'N/A'}</td>
+                        <td>${d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString() : ''}</td>
                         <td>${d.name || ''}</td>
                         <td>${d.email || ''}</td>
                         <td>${d.country || ''}</td>
@@ -187,51 +263,40 @@
                     `;
                     tbody.appendChild(row);
                 });
-                attachStatusListeners();
-                attachDeleteListeners();
-                attachViewListeners(docs);
-            }
-
-            renderTable(allDocs);
-
-            function attachViewListeners(docs) {
-                document.querySelectorAll('.viewBtn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const id = btn.dataset.id;
-                        const docData = docs.find(d => d.id === id);
-                        if (docData) showDetail(docData);
-                    });
-                });
+                attachCounsellingListeners(filteredDocs);
             }
 
             function applyFilters() {
-                let filtered = allDocs;
-                const countryVal = document.getElementById('filterCountry').value;
-                const purposeVal = document.getElementById('filterPurpose').value;
-                const searchVal = document.getElementById('searchBox').value.toLowerCase();
-                if (countryVal) filtered = filtered.filter(d => d.country === countryVal);
-                if (purposeVal) filtered = filtered.filter(d => d.purpose === purposeVal);
-                if (searchVal) filtered = filtered.filter(d => d.name?.toLowerCase().includes(searchVal) || d.email?.toLowerCase().includes(searchVal));
+                let filtered = docs;
+                const cVal = document.getElementById('filterCountry').value;
+                const pVal = document.getElementById('filterPurpose').value;
+                const sVal = document.getElementById('searchBox').value.toLowerCase();
+                if (cVal) filtered = filtered.filter(d => d.country === cVal);
+                if (pVal) filtered = filtered.filter(d => d.purpose === pVal);
+                if (sVal) filtered = filtered.filter(d => d.name?.toLowerCase().includes(sVal) || d.email?.toLowerCase().includes(sVal));
                 renderTable(filtered);
             }
             document.getElementById('filterCountry').addEventListener('change', applyFilters);
             document.getElementById('filterPurpose').addEventListener('change', applyFilters);
             document.getElementById('searchBox').addEventListener('input', applyFilters);
 
-            function attachStatusListeners() {
-                document.querySelectorAll('.statusChange').forEach(select => {
-                    select.addEventListener('change', async (e) => {
+            function attachCounsellingListeners(filteredDocs) {
+                document.querySelectorAll('.statusChange').forEach(sel => {
+                    sel.addEventListener('change', async (e) => {
                         const id = e.target.dataset.id;
-                        const newStatus = e.target.value;
-                        await updateDoc(doc(db, "counselling", id), { status: newStatus });
+                        await updateDoc(doc(db, "counselling", id), { status: e.target.value });
                     });
                 });
-            }
-
-            function attachDeleteListeners() {
+                document.querySelectorAll('.viewBtn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.dataset.id;
+                        const data = docs.find(d => d.id === id);
+                        if (data) showDetail(data, 'counselling');
+                    });
+                });
                 document.querySelectorAll('.deleteBtn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
-                        if(confirm('Delete this entry?')) {
+                        if (confirm('Delete?')) {
                             await deleteDoc(doc(db, "counselling", e.target.dataset.id));
                             location.reload();
                         }
@@ -239,18 +304,108 @@
                 });
             }
 
-            // Export CSV (includes all fields, not just visible ones)
+            renderTable(docs);
+
+            // Export CSV
             document.getElementById('exportCSV').addEventListener('click', () => {
                 const rows = [['Date','Name','Email','Mobile','Country','City','Gender','DOB','Qualification','Budget','Purpose','Interested Country','Summary','Status']];
-                allDocs.forEach(d => {
+                docs.forEach(d => {
                     const date = d.createdAt ? new Date(d.createdAt.seconds*1000).toISOString() : '';
                     rows.push([date, d.name, d.email, d.mobile, d.country, d.city, d.gender, d.dob, d.qualification, d.budget, d.purpose, d.interestedCountry, d.summary, d.status || 'New']);
                 });
-                let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-                const encodedUri = encodeURI(csvContent);
+                let csv = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
                 const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", "counselling_requests.csv");
+                link.href = encodeURI(csv);
+                link.download = "counselling_requests.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+
+        function renderJobApplicationsTab(container) {
+            const docs = allJobDocs;
+            let html = `
+                <div class="filter-bar">
+                    <select id="filterJobCountry"><option value="">All Countries</option></select>
+                    <input type="text" id="searchJobBox" placeholder="Search name or email">
+                </div>
+                <button id="exportJobsCSV" class="export-btn">Export CSV</button>
+                <table class="dashboard-table">
+                    <thead><tr><th>Date</th><th>Job Title</th><th>Name</th><th>Email</th><th>Phone</th><th>Country</th><th>Actions</th></tr></thead>
+                    <tbody id="jobsTableBody"></tbody>
+                </table>
+            `;
+            container.innerHTML = html;
+
+            const countries = [...new Set(docs.map(d => d.country))];
+            const countrySel = document.getElementById('filterJobCountry');
+            countries.forEach(c => { let opt = document.createElement('option'); opt.value = c; opt.textContent = c; countrySel.appendChild(opt); });
+
+            function renderJobTable(filteredDocs) {
+                const tbody = document.getElementById('jobsTableBody');
+                tbody.innerHTML = '';
+                filteredDocs.forEach(d => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${d.appliedAt ? new Date(d.appliedAt.seconds*1000).toLocaleDateString() : ''}</td>
+                        <td>${d.jobTitle || ''}</td>
+                        <td>${d.name || ''}</td>
+                        <td>${d.email || ''}</td>
+                        <td>${d.phone || ''}</td>
+                        <td>${d.country || ''}</td>
+                        <td>
+                            <button class="viewJobBtn" data-id="${d.id}">View</button>
+                            <button class="deleteJobBtn" data-id="${d.id}">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                attachJobListeners(filteredDocs);
+            }
+
+            function applyJobFilters() {
+                let filtered = docs;
+                const cVal = document.getElementById('filterJobCountry').value;
+                const sVal = document.getElementById('searchJobBox').value.toLowerCase();
+                if (cVal) filtered = filtered.filter(d => d.country === cVal);
+                if (sVal) filtered = filtered.filter(d => d.name?.toLowerCase().includes(sVal) || d.email?.toLowerCase().includes(sVal));
+                renderJobTable(filtered);
+            }
+            document.getElementById('filterJobCountry').addEventListener('change', applyJobFilters);
+            document.getElementById('searchJobBox').addEventListener('input', applyJobFilters);
+
+            function attachJobListeners(filteredDocs) {
+                document.querySelectorAll('.viewJobBtn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.dataset.id;
+                        const data = docs.find(d => d.id === id);
+                        if (data) showDetail(data, 'job');
+                    });
+                });
+                document.querySelectorAll('.deleteJobBtn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        if (confirm('Delete?')) {
+                            await deleteDoc(doc(db, "job_applications", e.target.dataset.id));
+                            location.reload();
+                        }
+                    });
+                });
+            }
+
+            renderJobTable(docs);
+
+            // Export CSV for jobs
+            document.getElementById('exportJobsCSV').addEventListener('click', () => {
+                const rows = [['Date','Job Title','Name','Email','Phone','Country','Qualification','Experience','Cover Letter','CV File']];
+                docs.forEach(d => {
+                    const date = d.appliedAt ? new Date(d.appliedAt.seconds*1000).toISOString() : '';
+                    rows.push([date, d.jobTitle, d.name, d.email, d.phone, d.country, d.qualification, d.experience, d.coverLetter, d.cvFileName]);
+                });
+                let csv = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
+                const link = document.createElement("a");
+                link.href = encodeURI(csv);
+                link.download = "job_applications.csv";
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
