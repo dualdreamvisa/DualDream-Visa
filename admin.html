@@ -10,7 +10,7 @@
 
     <script type="module">
         import { db, auth } from "./js/firebase-init.js";
-        import { collection, getDocs, query, orderBy, where, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { collection, getDocs, query, orderBy, where, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
         const appDiv = document.getElementById('adminApp');
