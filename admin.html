@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel – DualDream Visa</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="adminApp"></div>
+
+    <script type="module">
+        import { db, auth } from "./js/firebase-init.js";
+        import { collection, getDocs, query, orderBy, where, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+        const appDiv = document.getElementById('adminApp');
+
+        // Check auth state
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // Verify admin privilege (check admins collection)
+                const adminSnap = await getDocs(query(collection(db, "admins"), where("uid", "==", user.uid)));
+                if (!adminSnap.empty) {
+                    renderDashboard();
+                } else {
+                    appDiv.innerHTML = '<p>You are not authorized.</p>';
+                    signOut(auth);
+                }
+            } else {
+                renderLogin();
+            }
+        });
+
+        function renderLogin() {
+            appDiv.innerHTML = `
+                <div class="admin-login-form card">
+                    <h2>Admin Login</h2>
+                    <div class="form-group"><input type="email" id="loginEmail" placeholder="Email" required></div>
+                    <div class="form-group"><input type="password" id="loginPassword" placeholder="Password" required></div>
+                    <button id="loginBtn" class="submit-btn">Login</button>
+                    <p id="loginError" style="color:red;margin-top:10px;"></p>
+                </div>
+            `;
+            document.getElementById('loginBtn').addEventListener('click', async () => {
+                const email = document.getElementById('loginEmail').value;
+                const pass = document.getElementById('loginPassword').value;
+                try {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                } catch (e) {
+                    document.getElementById('loginError').textContent = "Invalid email or password.";
+                }
+            });
+        }
+
+        async function renderDashboard() {
+            appDiv.innerHTML = `
+                <div style="max-width:1200px;margin:20px auto;padding:20px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <h2>Counselling Requests</h2>
+                        <button id="logoutBtn" class="logout-btn">Logout</button>
+                    </div>
+                    <div class="filter-bar">
+                        <select id="filterCountry"><option value="">All Countries</option></select>
+                        <select id="filterPurpose"><option value="">All Purposes</option></select>
+                        <input type="text" id="searchBox" placeholder="Search name or email">
+                    </div>
+                    <button id="exportCSV" class="export-btn">Export CSV</button>
+                    <table class="dashboard-table">
+                        <thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Country</th><th>Purpose</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            `;
+
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+            // Load data
+            const q = query(collection(db, "counselling"), orderBy("createdAt", "desc"));
+            const querySnapshot = await getDocs(q);
+            let allDocs = [];
+            querySnapshot.forEach(docSnap => allDocs.push({ id: docSnap.id, ...docSnap.data() }));
+
+            // Populate filters
+            const countries = [...new Set(allDocs.map(d => d.country))];
+            const purposes = [...new Set(allDocs.map(d => d.purpose))];
+            const countrySelect = document.getElementById('filterCountry');
+            const purposeSelect = document.getElementById('filterPurpose');
+            countries.forEach(c => { let opt = document.createElement('option'); opt.value = c; opt.textContent = c; countrySelect.appendChild(opt); });
+            purposes.forEach(p => { let opt = document.createElement('option'); opt.value = p; opt.textContent = p; purposeSelect.appendChild(opt); });
+
+            function renderTable(docs) {
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+                docs.forEach(d => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString() : 'N/A'}</td>
+                        <td>${d.name || ''}</td>
+                        <td>${d.email || ''}</td>
+                        <td>${d.country || ''}</td>
+                        <td>${d.purpose || ''}</td>
+                        <td><select class="statusChange" data-id="${d.id}">
+                            <option value="New" ${d.status==='New'?'selected':''}>New</option>
+                            <option value="Contacted" ${d.status==='Contacted'?'selected':''}>Contacted</option>
+                            <option value="Follow-up" ${d.status==='Follow-up'?'selected':''}>Follow-up</option>
+                            <option value="Closed" ${d.status==='Closed'?'selected':''}>Closed</option>
+                        </select></td>
+                        <td><button class="deleteBtn" data-id="${d.id}">Delete</button></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                attachStatusListeners();
+                attachDeleteListeners();
+            }
+
+            renderTable(allDocs);
+
+            // Filters
+            function applyFilters() {
+                let filtered = allDocs;
+                const countryVal = document.getElementById('filterCountry').value;
+                const purposeVal = document.getElementById('filterPurpose').value;
+                const searchVal = document.getElementById('searchBox').value.toLowerCase();
+                if (countryVal) filtered = filtered.filter(d => d.country === countryVal);
+                if (purposeVal) filtered = filtered.filter(d => d.purpose === purposeVal);
+                if (searchVal) filtered = filtered.filter(d => d.name?.toLowerCase().includes(searchVal) || d.email?.toLowerCase().includes(searchVal));
+                renderTable(filtered);
+            }
+            document.getElementById('filterCountry').addEventListener('change', applyFilters);
+            document.getElementById('filterPurpose').addEventListener('change', applyFilters);
+            document.getElementById('searchBox').addEventListener('input', applyFilters);
+
+            // Status change
+            function attachStatusListeners() {
+                document.querySelectorAll('.statusChange').forEach(select => {
+                    select.addEventListener('change', async (e) => {
+                        const id = e.target.dataset.id;
+                        const newStatus = e.target.value;
+                        await updateDoc(doc(db, "counselling", id), { status: newStatus });
+                    });
+                });
+            }
+
+            // Delete
+            function attachDeleteListeners() {
+                document.querySelectorAll('.deleteBtn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        if(confirm('Delete this entry?')) {
+                            await deleteDoc(doc(db, "counselling", e.target.dataset.id));
+                            // Reload page or remove row
+                            location.reload();
+                        }
+                    });
+                });
+            }
+
+            // Export CSV
+            document.getElementById('exportCSV').addEventListener('click', () => {
+                const rows = [['Date','Name','Email','Mobile','Country','City','Gender','DOB','Qualification','Budget','Purpose','Interested Country','Summary','Status']];
+                allDocs.forEach(d => {
+                    const date = d.createdAt ? new Date(d.createdAt.seconds*1000).toISOString() : '';
+                    rows.push([date, d.name, d.email, d.mobile, d.country, d.city, d.gender, d.dob, d.qualification, d.budget, d.purpose, d.interestedCountry, d.summary, d.status || 'New']);
+                });
+                let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "counselling_requests.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+    </script>
+</body>
+</html>
